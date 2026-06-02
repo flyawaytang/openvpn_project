@@ -82,5 +82,4 @@ Thumbs.db
 *.tar.zst
 
 # OpenVPN specific
-openvpn-source/
 ```
