@@ -11,9 +11,10 @@
 *   **运行环境**：本方案已在 Ubuntu 20.04 上验证通过（基于 OpenVPN v2.8 源码）。
 *   **输出方式**：解密后的数据直接打印到标准输出 (stdout) 或指定日志文件，方便分析。
 *   **版本说明**：
-    - 工作区 `openvpn-source/` 目录包含的是 **OpenVPN v2.8 (Git 开发版)** 源码
-    - 同时提供了 `openvpn_monitor.patch` 补丁文件，可应用于其他版本（如 v2.6.3）
-    - 推荐使用 v2.8 版本，因为源码已预集成监控钩子
+    - 工作区 `openvpn-source/` 目录包含的是 **OpenVPN v2.8 (Git 开发版)** 源码，已预集成监控钩子
+    - `openvpn_monitor.patch` 文件仅作为参考示例，展示如何手动添加监控钩子到源码中
+    - **重要**：不要尝试将补丁应用到其他版本（如 v2.6.x），因为不同版本的源码结构差异较大，补丁可能无法应用
+    - 推荐使用工作区中已集成的 v2.8 版本直接编译
 
 ---
 
@@ -81,26 +82,27 @@ make -j$(nproc)
 sudo make install
 ```
 
-### 方法 B：使用补丁应用到官方源码
+### 方法 B：使用补丁应用到官方源码（不推荐）
 
-如果你想使用其他版本的 OpenVPN 源码，可以使用提供的补丁文件：
+> **注意**：由于 OpenVPN 不同版本之间源码结构差异较大，`openvpn_monitor.patch` 可能无法直接应用到其他版本。此方法仅供高级用户参考，通常需要手动调整补丁内容。
+
+如果你想尝试使用其他版本的 OpenVPN 源码，可以参考以下步骤：
 
 ```bash
 cd /workspace
 
-# 下载官方源码（以 v2.6.3 为例，也可选择其他版本）
-wget https://github.com/OpenVPN/openvpn/releases/download/v2.6.3/openvpn-2.6.3.tar.gz
-tar -xzf openvpn-2.6.3.tar.gz
-cd openvpn-2.6.3
+# 下载官方源码（以 v2.6.12 为例）
+wget https://github.com/OpenVPN/openvpn/releases/download/v2.6.12/openvpn-2.6.12.tar.gz
+tar -xzf openvpn-2.6.12.tar.gz
+cd openvpn-2.6.12
 
-# 应用补丁（可能需要根据版本差异手动调整）
-patch -p1 < /workspace/openvpn_monitor.patch || echo "Patch may need manual adjustment"
-
-# 将监控模块复制进去
+# 复制监控模块
 cp /workspace/openvpn_traffic_monitor.c src/openvpn/
 
-# 添加到编译列表
-sed -i '/openvpn_SOURCES.*=/a\\topenvpn_traffic_monitor.c' src/openvpn/Makefile.am
+# 手动添加钩子到源码中（需要参考 openvpn_monitor.patch 的内容手动修改）
+# 1. 在 src/openvpn/crypto.c 中添加解密后的钩子调用
+# 2. 在 src/openvpn/ssl_pkt.c 中添加控制通道的钩子调用
+# 3. 在 src/openvpn/Makefile.am 中添加 openvpn_traffic_monitor.c 到编译列表
 
 # 继续标准编译流程
 ./bootstrap
@@ -109,10 +111,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-> **版本说明**：
-> - **推荐使用 v2.8**（工作区已集成的版本）：这是最新的开发分支，代码结构最新
-> - **v2.6.x**：稳定版本，补丁兼容性较好
-> - **v2.5.x 及更早**：可能需要手动调整补丁，因为内部 API 有变化
+> **强烈建议**：直接使用工作区中已集成好的 `openvpn-source/` 目录进行编译，避免手动打补丁的复杂性。
 
 ---
 
