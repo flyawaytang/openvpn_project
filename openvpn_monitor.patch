@@ -1,0 +1,113 @@
+diff --git a/src/openvpn/crypto.c b/src/openvpn/crypto.c
+index 1111111..2222222 100644
+--- a/src/openvpn/crypto.c
++++ b/src/openvpn/crypto.c
+@@ -28,6 +28,7 @@
+ #include "config.h"
+ 
+ #include <stdio.h>
++#include <time.h>
+ 
+ #ifdef ENABLE_CRYPTO
+ 
+@@ -300,6 +301,25 @@ static const char *key_type_str(int key_type)
+     }
+ }
+ 
++/* === CUSTOM MONITOR HOOK START === */
++static void
++print_hex_plain(const char *label, const uint8_t *data, int len, bool from_client)
++{
++    if (len <= 0) return;
++    
++    time_t now = time(NULL);
++    struct tm *t = localtime(&now);
++    char timestamp[32];
++    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
++
++    printf("[%s] [PLAIN DATA] %s (%s): Len=%d\n", timestamp, label, from_client ? "C->S" : "S->C", len);
++    for (int i = 0; i < len; i++) {
++        if (i > 0 && i % 16 == 0) printf("\n");
++        printf("%02x ", data[i]);
++    }
++    printf("\n--------------------------------------------------\n");
++    fflush(stdout);
++}
++/* === CUSTOM MONITOR HOOK END === */
++
+ /*
+  * Decrypt the packet contained in buffer 'in'.
+  * The decrypted packet will be placed in buffer 'out'.
+@@ -450,6 +470,10 @@ crypto_decrypt(struct tunnel_instance *instance,
+         /*
+          * Decrypt the packet.
+          */
++        // Hook: Print plaintext AFTER decryption but before processing
++        // Note: op32->buf contains the decrypted payload
++        print_hex_plain("DECRYPTED_PAYLOAD", op32->buf.data, op32->buf.len, !c->from_server);
++
+         if (!crypto_openvpn_decrypt_packet(instance, c, work, op32, key_id, opt))
+         {
+             goto err;
+diff --git a/src/openvpn/forward.c b/src/openvpn/forward.c
+index 3333333..4444444 100644
+--- a/src/openvpn/forward.c
++++ b/src/openvpn/forward.c
+@@ -29,6 +29,7 @@
+ 
+ #include "config.h"
+ 
++#include <time.h>
+ #include "forward.h"
+ #include "forward_inline.h"
+ #include "comp.h"
+@@ -100,6 +101,24 @@ check_status(struct context *c)
+     }
+ }
+ 
++/* === CUSTOM MONITOR HOOK FOR CONTROL CHANNEL START === */
++static void
++print_control_channel_plain(const struct buffer *buf, bool from_client)
++{
++    if (buf->len <= 0) return;
++
++    // Simple heuristic: Control channel packets usually start with opcode in first byte
++    // We just dump everything that reaches the process_packet function as plain text context
++    time_t now = time(NULL);
++    struct tm *t = localtime(&now);
++    char timestamp[32];
++    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
++
++    printf("[%s] [CONTROL PLAIN] %s: Len=%d\n", timestamp, from_client ? "C->S" : "S->C", buf->len);
++    // Dump hex
++    for (int i = 0; i < buf->len; i++) { printf("%02x ", buf->data[i]); if((i+1)%16==0) printf("\n"); }
++    printf("\n--------------------------------------------------\n");
++    fflush(stdout);
++}
++/* === CUSTOM MONITOR HOOK END === */
++
+ static void
+ process_incoming_tls_auth(struct context *c)
+ {
+@@ -350,6 +369,10 @@ process_incoming_vpn_message(struct context *c)
+         if (c->c2.to_tun.len > 0)
+         {
+             perf_event_pop(&c->c2.to_tun);
++            // If this is a data packet being pushed to TUN, it is already decrypted
++            // We log it here as well to catch IP layer data
++            // print_hex_plain("TO_TUN_PLAIN", c->c2.to_tun.data, c->c2.to_tun.len, !c->c2.from_server); 
++            // Already logged in crypto.c, avoiding duplicate logs for data channel.
+         }
+         return;
+     }
+@@ -450,6 +473,10 @@ process_outgoing_vpn_message(struct context *c)
+             /*
+              * Encrypt and write to TCP/UDP port.
+              */
++            // Hook: Before encryption, the buffer c->c2.to_link_data is plain text
++            // However, for Data Channel, encryption happens in crypto_wrap. 
++            // For Control Channel, this is the final plain text before wrapping.
++            if (c->c2.control_message) print_control_channel_plain(&c->c2.to_link_data, c->c2.from_server);
+ 
+             crypto_wrap(&c->c2.to_link_data, &c->c2.opt, c->c2.key_id, c->c2.pid, c->c2.op, c);
+ 
