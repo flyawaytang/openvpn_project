@@ -1,6 +1,6 @@
 # OpenVPN 全流量明文监控系统
 
-本项目基于 OpenVPN 开源代码（v2.8）修改实现，能够实时监控并输出 OpenVPN 通信过程中的**解密后明文数据**（十六进制格式）。
+本项目基于 OpenVPN 开源代码（**v2.8 Git 开发版**）修改实现，能够实时监控并输出 OpenVPN 通信过程中的**解密后明文数据**（十六进制格式）。
 主要监控内容包括：
 1. **控制通道 (Control Channel)**：TLS 握手、密钥协商等管理指令。
 2. **数据通道 (Data Channel)**：实际传输的 IP 数据包（解密后）。
@@ -10,7 +10,10 @@
 *   **必须重新编译 OpenVPN**：由于需要 Hook 内部的加密/解密函数，无法通过插件或外部工具实现，必须修改源码并重新编译 OpenVPN。
 *   **运行环境**：本方案已在 Ubuntu 20.04 上验证通过（基于 OpenVPN v2.8 源码）。
 *   **输出方式**：解密后的数据直接打印到标准输出 (stdout) 或指定日志文件，方便分析。
-*   **当前状态**：源码中已包含钩子声明，只需编译即可启用监控功能。
+*   **版本说明**：
+    - 工作区 `openvpn-source/` 目录包含的是 **OpenVPN v2.8 (Git 开发版)** 源码
+    - 同时提供了 `openvpn_monitor.patch` 补丁文件，可应用于其他版本（如 v2.6.3）
+    - 推荐使用 v2.8 版本，因为源码已预集成监控钩子
 
 ---
 
@@ -48,22 +51,27 @@ sudo apt-get install -y build-essential libssl-dev liblzo2-dev libpam0g-dev libp
 
 ### 方法 A：直接编译已集成的源码（推荐）
 
+当前 `openvpn-source` 目录中的源码是 **OpenVPN v2.8 (Git 开发版)**，已经集成了监控钩子，无需额外打补丁，直接编译即可。
+
 ```bash
 cd /workspace/openvpn-source
 
-# 生成 configure 脚本（如果需要）
+# 生成 configure 脚本
 ./bootstrap
 
 # 配置编译选项
 # --prefix: 安装路径，建议安装到独立目录以免覆盖系统自带 openvpn
 ./configure --prefix=/usr/local/openvpn-monitor --enable-password-save
 
-# 编译（需要将监控模块一起编译）
-# 首先将监控模块复制到源码目录
+# 将监控模块复制到源码目录
 cp /workspace/openvpn_traffic_monitor.c src/openvpn/
 
-# 修改 Makefile.am 添加监控模块（如果尚未添加）
-# 然后重新生成 Makefile
+# 注意：需要将监控模块添加到编译列表中
+# 编辑 src/openvpn/Makefile.am，在 openvpn_SOURCES 中添加 openvpn_traffic_monitor.c
+echo "Adding monitor module to Makefile.am..."
+sed -i '/openvpn_SOURCES.*=/a\\topenvpn_traffic_monitor.c' src/openvpn/Makefile.am
+
+# 重新生成 Makefile
 autoreconf -fi
 
 # 编译
@@ -75,19 +83,24 @@ sudo make install
 
 ### 方法 B：使用补丁应用到官方源码
 
-如果你想使用官方发布的 OpenVPN 源码：
+如果你想使用其他版本的 OpenVPN 源码，可以使用提供的补丁文件：
 
 ```bash
 cd /workspace
+
+# 下载官方源码（以 v2.6.3 为例，也可选择其他版本）
 wget https://github.com/OpenVPN/openvpn/releases/download/v2.6.3/openvpn-2.6.3.tar.gz
 tar -xzf openvpn-2.6.3.tar.gz
 cd openvpn-2.6.3
 
-# 应用补丁
-patch -p1 < /workspace/openvpn_monitor.patch
+# 应用补丁（可能需要根据版本差异手动调整）
+patch -p1 < /workspace/openvpn_monitor.patch || echo "Patch may need manual adjustment"
 
-# 然后将监控模块复制进去并编译
+# 将监控模块复制进去
 cp /workspace/openvpn_traffic_monitor.c src/openvpn/
+
+# 添加到编译列表
+sed -i '/openvpn_SOURCES.*=/a\\topenvpn_traffic_monitor.c' src/openvpn/Makefile.am
 
 # 继续标准编译流程
 ./bootstrap
@@ -96,7 +109,10 @@ make -j$(nproc)
 sudo make install
 ```
 
-> **注意**：补丁可能因版本差异需要手动调整。推荐直接使用已集成的 `openvpn-source` 目录。
+> **版本说明**：
+> - **推荐使用 v2.8**（工作区已集成的版本）：这是最新的开发分支，代码结构最新
+> - **v2.6.x**：稳定版本，补丁兼容性较好
+> - **v2.5.x 及更早**：可能需要手动调整补丁，因为内部 API 有变化
 
 ---
 

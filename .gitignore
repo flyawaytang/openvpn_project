@@ -1,10 +1,26 @@
 ```
-# Patches
-*.patch
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+.julia/
+zig*/
+.deps/
 
 # Logs and temp files
 *.log
 *.tmp
+*.swp
+*.swo
 
 # Environment
 .env
@@ -14,33 +30,10 @@
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Dependencies
-node_modules/
-.venv/
-venv/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
-.julia/
-zig*/
-julia-*/
-
-# Build artifacts
-dist/
-build/
-target/
-*.o
-*.obj
-*.out
-*.exe
-*.dll
-*.so
-*.a
-*.class
-*.pyc
-
-# System files
+# System
 .DS_Store
 Thumbs.db
 
@@ -48,6 +41,12 @@ Thumbs.db
 coverage/
 htmlcov/
 .coverage
+
+# MyPy
+.mypy_cache/
+
+# PyTest
+.pytest_cache/
 
 # Compressed files
 *.zip
@@ -68,8 +67,4 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
 ```
