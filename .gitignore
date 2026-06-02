@@ -1,12 +1,19 @@
 ```
-# Build artifacts
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
+# Patches
+*.patch
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
 
 # Dependencies
 node_modules/
@@ -15,27 +22,27 @@ venv/
 __pycache__/
 .mypy_cache/
 .pytest_cache/
+.julia/
+zig*/
+julia-*/
+
+# Build artifacts
 dist/
 build/
 target/
-.gradle/
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Logs and temp files
-*.log
-*.tmp
+*.o
+*.obj
+*.out
+*.exe
+*.dll
+*.so
+*.a
+*.class
+*.pyc
 
 # System files
 .DS_Store
 Thumbs.db
-.env
-.env.local
-*.env.*
 
 # Coverage
 coverage/
